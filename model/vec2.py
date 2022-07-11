@@ -14,6 +14,15 @@ class Vec2:
         self.y = y
         """`y` coordinate of the vector"""
 
+
+    def copy(self):
+        return Vec2(self.x, self.y)
+
+    def minus(self, other):
+        self.x -= other.x
+        self.y -= other.y
+        return self         
+
     @staticmethod
     def read_from(stream: StreamWrapper) -> "Vec2":
         """Read Vec2 from input stream
