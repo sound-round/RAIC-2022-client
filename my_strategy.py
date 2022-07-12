@@ -7,10 +7,10 @@ from model.vec2 import Vec2
 from model.action_order import ActionOrder
 from typing import Optional
 from debug_interface import DebugInterface
-import sys, math
+import sys, math, operator as op
 
 
-SHOOT_DISTANCE_TO_ENEMY = 20
+SHOOT_DISTANCE_TO_ENEMY = 5
 
 class MyStrategy:
     def __init__(self, constants: Constants):
@@ -20,19 +20,22 @@ class MyStrategy:
         for unit in game.units:
             if unit.player_id != game.my_id:
                 continue
-            
+            # TODO: 1. оборачиваться на звуки 2. Уворачиваться 
+            # 3. стрелять с расстояния выстрела
 
             my_unit = unit
             velocity = Vec2(-unit.position.x, -unit.position.y)
             direction = Vec2(-unit.direction.y, unit.direction.x)  # просто крутится взглядом
             shoot = False
             ranked_enemies = self.sort_enemies(my_unit, game.units, game)
-            # print("\033[91m ranked_enemies \033[0m", Constants.unit_radius)
-            potion = None
+
+            loot_item = None
             possibleTarget = None
             if my_unit.shield_potions <= 1:
-                potion = self.find_shield_potion(game.loot, my_unit)
-            if not potion:
+                loot_item = self.find_shield_potion(game.loot, my_unit)
+            if not loot_item and my_unit.ammo[my_unit.weapon] == 0:
+                loot_item = self.find_ammo(game.loot, my_unit)
+            if not loot_item:
                 possibleTarget = self.find_enemy(ranked_enemies)
             if possibleTarget:
                 direction = possibleTarget.position.copy().minus(unit.position)
@@ -46,20 +49,23 @@ class MyStrategy:
                 if debug_interface:
                     self.show_target(debug_interface, unit, possibleTarget)
 
-            action = ActionOrder.Aim(shoot)
+            action = None
 
-            if potion:
-                distance = self.find_distance(potion, my_unit)
+            if loot_item:
+                distance = self.find_distance(loot_item, my_unit)
                 if distance < 1:
-                    action = ActionOrder.Pickup(potion.id)
-                direction = potion.position.copy().minus(unit.position)
-                velocity = direction
+
+                    action = ActionOrder.Pickup(loot_item.id)
+                direction = loot_item.position.copy().minus(unit.position)
+                velocity = Vec2(direction.x * 2000, direction.y * 2000)
 
                 if debug_interface:
-                        self.show_target(debug_interface, unit, potion)
+                        self.show_target(debug_interface, unit, loot_item)
 
-            if my_unit.shield < 60 and my_unit.shield_potions:
+            if my_unit.shield < 60 and my_unit.shield_potions and not action:
                 action = ActionOrder.UseShieldPotion()
+            
+            action = action or ActionOrder.Aim(shoot)
 
             orders[unit.id] = UnitOrder(
                 velocity,
@@ -91,8 +97,16 @@ class MyStrategy:
         potions.sort()
         return potions[0][1]
 
-    # def pickup_loot(self, loot):
-
+    def find_ammo(self, loot, my_unit):
+        ammos = []
+        for obj in loot:
+            if obj.item.TAG == 2 and obj.item.weapon_type_index == my_unit.weapon:
+                distance = self.find_distance(obj, my_unit)
+                ammos.append((distance, obj))
+        if not ammos:
+            return
+        ammos.sort()
+        return ammos[0][1]
 
     def sort_enemies(self, my_unit, units, game):
         enemies = []
