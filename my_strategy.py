@@ -1,4 +1,3 @@
-import muffin
 from debugging.color import Color
 from model.game import Game
 from model.order import Order
@@ -38,7 +37,7 @@ class MyStrategy:
             if unit.player_id != game.my_id:
                 continue
             # TODO: 1. оборачиваться на звуки 
-            # 2. Уворачиваться 
+            # 2. сделать ранжирование опасности для подъема предмета
             # 4. Не стрелять через стены, которые не простреливаются
             # 5  Научить бегать зигзагами (научил кое-как)
             # 6. зона сужается, нужно учесть (не собирать лут, бежать центр безопасной зоны)
@@ -66,7 +65,7 @@ class MyStrategy:
             if not loot_item and my_unit.weapon == 0:
                 loot_item = self.find_weapon(game.loot, my_unit)
             if not loot_item and my_unit.ammo[my_unit.weapon] == 0:
-                loot_item = self.find_ammo(game.loot, my_unit)
+                loot_item = self.find_ammo(game.loot, my_unit, game)
             # if not loot_item:
             possibleTarget = self.find_enemy(ranked_enemies)
             if possibleTarget:
@@ -90,7 +89,7 @@ class MyStrategy:
             action = None
 
             if loot_item:
-                shoot = False
+                # shoot = False
                 distance = self.find_distance(loot_item, my_unit)
                 if distance < 1:
                     action = ActionOrder.Pickup(loot_item.id)
@@ -105,7 +104,6 @@ class MyStrategy:
 
             if my_unit.shield < 90 and my_unit.shield_potions and not action and not shoot:
                 action = ActionOrder.UseShieldPotion()
-            print(action)
             orders[unit.id] = UnitOrder(
                 velocity,
                 direction,
@@ -141,11 +139,18 @@ class MyStrategy:
         potions.sort()
         return potions[0][1]
 
-    def find_ammo(self, loot, my_unit):
+    def find_ammo(self, loot, my_unit, game):
         ammos = []
         for obj in loot:
             if obj.item.TAG == 2 and obj.item.weapon_type_index == my_unit.weapon:
                 distance = self.find_distance(obj, my_unit)
+                # distances_to_enemies = []
+                # for enemy in game.units:
+                #     if enemy.player_id != game.my_id:
+                #         dist = self.find_distance(obj, enemy)
+                #         distances_to_enemies.append(dist)
+                # if distances_to_enemies and min(distances_to_enemies) < 40:
+                #     continue        
                 ammos.append((distance, obj))
         if not ammos:
             return
