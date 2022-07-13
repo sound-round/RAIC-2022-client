@@ -8,21 +8,40 @@ from model.vec2 import Vec2
 from model.action_order import ActionOrder
 from typing import Optional
 from debug_interface import DebugInterface
-import sys, math, operator as op
+import math, random
 
 
 SHOOT_DISTANCE_TO_ENEMY = 5
+# MIN_RANDOM_COORDINATE = -60
+# MAX_RANDOM_COORDINATE = 60
+MIN_TIME_FOR_ZIGZAG = 30
+MAX_TIME_FOR_ZIGZAG = 60
+RANDOM_VALUE = 60
+
+random_xy = (0, 0)
+counter = 0
 
 class MyStrategy:
-    def __init__(self, constants: Constants):
-        pass
+    def __init__(self, constants: Constants, counter=counter, random_xy=random_xy):
+        self.counter = counter
+        self.random_xy = random_xy
+
     def get_order(self, game: Game, debug_interface: Optional[DebugInterface]) -> Order:
         orders = {}
+
+        if self.counter == 0:
+            self.random_xy = self.find_random_xy(RANDOM_VALUE)
+            self.counter = random.randint(MIN_TIME_FOR_ZIGZAG, MAX_TIME_FOR_ZIGZAG)
+        self.counter -= 1
+
         for unit in game.units:
             if unit.player_id != game.my_id:
                 continue
-            # TODO: 1. оборачиваться на звуки 2. Уворачиваться 
-            # 3. стрелять с расстояния выстрела 4. Не стрелять через стены, которые не простреливаются
+            # TODO: 1. оборачиваться на звуки 
+            # 2. Уворачиваться 
+            # 4. Не стрелять через стены, которые не простреливаются
+            # 5  Научить бегать зигзагами (научил кое-как)
+            # 6. зона сужается, нужно учесть (не собирать лут, бежать центр безопасной зоны)
             # TODO: queue = [], куда записывать очередность действий
 
             # sounds = game.sounds
@@ -51,14 +70,18 @@ class MyStrategy:
             # if not loot_item:
             possibleTarget = self.find_enemy(ranked_enemies)
             if possibleTarget:
-                direction = possibleTarget.position.copy().minus(unit.position)
-                velocity = direction
                 distance = self.find_distance(my_unit, possibleTarget)
+                # direction = possibleTarget.position.copy().minus(unit.position)
+                # velocity = direction
+                velocity = Vec2(direction.x + self.random_xy[0], direction.y + self.random_xy[1])
+                
 
-                if distance < SHOOT_DISTANCE_TO_ENEMY:
-                    velocity = Vec2(0, 0)
+                # if distance < SHOOT_DISTANCE_TO_ENEMY:
+                #     velocity = Vec2(0, 0)
                 
                 if distance < max_distance_to_enemy:
+                    direction = possibleTarget.position.copy().minus(unit.position)
+                    velocity = Vec2(direction.x + self.random_xy[0], direction.y + self.random_xy[1])
                     shoot = True 
 
                 if debug_interface:
@@ -67,6 +90,7 @@ class MyStrategy:
             action = None
 
             if loot_item:
+                shoot = False
                 distance = self.find_distance(loot_item, my_unit)
                 if distance < 1:
                     action = ActionOrder.Pickup(loot_item.id)
@@ -88,6 +112,11 @@ class MyStrategy:
                 action,
             )
         return Order(orders)
+
+    def find_random_xy(self, value):
+        x = random.choice((value, - value))
+        y = random.choice((value, - value))
+        return (x, y)
 
     @staticmethod
     def find_distance(entity1, entity2):
@@ -126,7 +155,7 @@ class MyStrategy:
     def find_weapon(self, loot, my_unit):
         weapons = []
         for obj in loot:
-            if obj.item.TAG == 0 and obj.item.type_index == 1:
+            if obj.item.TAG == 0 and obj.item.type_index == 2:
                 distance = self.find_distance(obj, my_unit)
                 weapons.append((distance, obj))
         if not weapons:
