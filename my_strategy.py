@@ -11,8 +11,6 @@ import math, random
 
 
 SHOOT_DISTANCE_TO_ENEMY = 5
-# MIN_RANDOM_COORDINATE = -60
-# MAX_RANDOM_COORDINATE = 60
 MIN_TIME_FOR_ZIGZAG = 30
 MAX_TIME_FOR_ZIGZAG = 60
 RANDOM_VALUE = 60
@@ -36,12 +34,19 @@ class MyStrategy:
         for unit in game.units:
             if unit.player_id != game.my_id:
                 continue
-            # TODO: 1. оборачиваться на звуки 
-            # 2. сделать ранжирование опасности для подъема предмета
-            # 4. Не стрелять через стены, которые не простреливаются
-            # 5  Научить бегать зигзагами (научил кое-как)
-            # 6. зона сужается, нужно учесть (не собирать лут, бежать центр безопасной зоны)
-            # TODO: queue = [], куда записывать очередность действий
+            # TODO: 
+            # - оборачиваться на звуки 
+            # - учесть минимальное расстояние до противника (с учетом его оружия)
+            # - Диман: короч я сделал запоминание лута\снарядов (можно и врагов) невидимых
+            #           - и это тоже буст хороший похоже
+            # - Сделать ранжирование опасности для подъема предмета
+            # - Не стрелять через стены, которые не простреливаются
+            # - зона сужается, нужно учесть (не собирать лут, бежать в центр безопасной зоны)!
+            # - queue = [], куда записывать очередность действий
+
+            # FIXME:
+            # - стрелять с учетом вектора (немного поправил)
+            # - научить бегать зигзагами (научил кое-как)
 
             # sounds = game.sounds
             my_unit = unit
@@ -57,7 +62,7 @@ class MyStrategy:
 
             ranked_enemies = self.sort_enemies(my_unit, game.units, game)
 
-
+            action = None
             loot_item = None
             possibleTarget = None
             if my_unit.shield_potions == 0:
@@ -68,8 +73,14 @@ class MyStrategy:
                 loot_item = self.find_ammo(game.loot, my_unit, game)
             # if not loot_item:
             possibleTarget = self.find_enemy(ranked_enemies)
+            # distance_to_possible_target = 300
             if possibleTarget:
+                min_distance_to_target = 22
+                if possibleTarget.weapon == 0:
+                    min_distance_to_target = 32
+
                 distance = self.find_distance(my_unit, possibleTarget)
+                # distance_to_possible_target = distance
                 # direction = possibleTarget.position.copy().minus(unit.position)
                 # velocity = direction
                 velocity = Vec2(direction.x + self.random_xy[0], direction.y + self.random_xy[1])
@@ -78,18 +89,20 @@ class MyStrategy:
                 # if distance < SHOOT_DISTANCE_TO_ENEMY:
                 #     velocity = Vec2(0, 0)
                 
-                if distance < max_distance_to_enemy:
-                    direction = possibleTarget.position.copy().minus(unit.position)
+                if distance < max_distance_to_enemy and my_unit.ammo[my_unit.weapon]:
+                    direction = possibleTarget.position.copy().minus(unit.position).plus_vector(possibleTarget.velocity)
                     velocity = Vec2(direction.x + self.random_xy[0], direction.y + self.random_xy[1])
                     shoot = True 
-
+                    action = ActionOrder.Aim(shoot)
                 if debug_interface:
                     self.show_target(debug_interface, unit, possibleTarget)
 
-            action = None
+            
 
-            if loot_item:
+            if loot_item:# and distance_to_possible_target > 30 or not my_unit.ammo[my_unit.weapon]:
                 # shoot = False
+                if loot_item.item.TAG == 2:
+                    print(loot_item.item.amount)
                 distance = self.find_distance(loot_item, my_unit)
                 if distance < 1:
                     action = ActionOrder.Pickup(loot_item.id)
@@ -98,9 +111,6 @@ class MyStrategy:
 
                 if debug_interface:
                         self.show_target(debug_interface, unit, loot_item)
-
-            if not action and shoot:
-                action = ActionOrder.Aim(shoot)
 
             if my_unit.shield < 90 and my_unit.shield_potions and not action and not shoot:
                 action = ActionOrder.UseShieldPotion()

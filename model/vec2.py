@@ -21,7 +21,12 @@ class Vec2:
     def minus(self, other):
         self.x -= other.x
         self.y -= other.y
-        return self         
+        return self
+
+    def plus_vector(self, other):
+        self.x += other.x / 3 # TODO: refactor
+        self.y += other.y / 3
+        return self          
 
     @staticmethod
     def read_from(stream: StreamWrapper) -> "Vec2":
